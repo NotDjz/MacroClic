@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MacroClic: repeat or hold any key while you play</title>
+<meta name="description" content="A small Windows app that repeats or holds a key or mouse button for you, started and stopped by another key, from inside your game.">
+<meta property="og:title" content="MacroClic">
+<meta property="og:description" content="Repeat or hold any key or mouse button, toggled by another one. Built for games. Free and open source.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://notdjz.github.io/MacroClic/">
+<meta property="og:image" content="https://notdjz.github.io/MacroClic/screenshot.png">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg:     #F3F5F8;
+    --panel:  #E8ECF1;
+    --ink:    #14181F;
+    --dim:    #5B6573;
+    --key:    #FFFFFF;
+    --edge:   #D3D9E1;
+    --lip:    #B9C1CC;
+    --accent: #0A78D6;
+    --on-accent: #FFFFFF;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+    --mono: Consolas, ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:     #121418;
+      --panel:  #1A1D22;
+      --ink:    #E8ECF1;
+      --dim:    #98A2AE;
+      --key:    #262A31;
+      --edge:   #343943;
+      --lip:    #08090B;
+      --accent: #57C8FF;
+      --on-accent: #0D1117;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 1.0625rem/1.6 var(--body);
+  }
+  .wrap { width: min(1080px, 100% - 2rem); margin-inline: auto; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  h1, h2 { font-family: var(--display); line-height: 1.1; margin: 0; }
+
+  /* Top bar */
+  .top { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 0; }
+  .brand { display: flex; align-items: center; gap: .6rem; color: var(--ink); text-decoration: none;
+           font: 700 1.15rem var(--display); }
+  .top nav a { color: var(--dim); font-weight: 500; }
+
+  /* Hero */
+  .hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 3.5rem; align-items: center;
+          padding: 3.5rem 0 5rem; }
+  h1 { font-size: clamp(2.4rem, 5.2vw, 3.9rem); font-weight: 800; letter-spacing: -.02em; max-width: 15ch; text-wrap: balance; }
+  .lede { color: var(--dim); font-size: 1.2rem; max-width: 34ch; margin: 1.25rem 0 2rem; }
+  .cta { display: flex; flex-wrap: wrap; gap: .75rem; }
+  .btn { padding: .8rem 1.4rem; border-radius: 10px; font-weight: 600;
+         text-decoration: none; background: var(--accent); color: var(--on-accent); }
+  .btn.quiet { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--edge); }
+  .fine { color: var(--dim); font-size: .9rem; margin-top: 1rem; }
+
+  /* Demo: the app's own sentence, live */
+  .demo { background: var(--panel); border-radius: 20px; padding: 1.75rem; }
+  .cap { color: var(--dim); font-size: .95rem; margin: 0 0 .5rem; }
+  .key {
+    display: block; width: 100%; min-height: 4.25rem; padding: 0 1rem; margin-bottom: 1.4rem;
+    font: 650 1.4rem var(--display); color: var(--ink);
+    background: var(--key); border: 1px solid var(--edge); border-radius: 12px;
+    box-shadow: 0 6px 0 var(--lip);
+    cursor: pointer; transition: transform 60ms, box-shadow 60ms;
+  }
+  .key.down { transform: translateY(5px); box-shadow: 0 1px 0 var(--lip); }
+  .key.capturing { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .key:disabled { cursor: default; color: var(--dim); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: .4rem; }
+  .row label { color: var(--dim); }
+  .row input {
+    width: 5.5rem; padding: .45rem .6rem; font: inherit; color: var(--ink);
+    background: var(--key); border: 1px solid var(--edge); border-radius: 8px;
+  }
+  .run {
+    margin-left: auto; padding: .5rem 1.1rem; font: 600 1rem var(--body); cursor: pointer;
+    color: var(--ink); background: transparent; border: 1.5px solid var(--edge); border-radius: 8px;
+  }
+  .log { display: flex; justify-content: flex-end; gap: 6px; height: 12px; margin: 1.4rem 0 .9rem;
+         padding: 0; list-style: none; overflow: hidden;
+         mask-image: linear-gradient(to right, transparent, #000 60%); }
+  .log li { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--accent);
+            animation: pop 160ms ease-out; }
+  @keyframes pop { from { transform: scale(.2); } }
+  .status { margin: 0; min-height: 1.6em; font-weight: 500; }
+
+  /* Sections */
+  .info { padding: 3rem 0; border-top: 1px solid var(--edge); }
+  h2 { font-size: 1.75rem; font-weight: 700; margin-bottom: 1.5rem; }
+  dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin: 0; }
+  dt { font-weight: 600; margin-bottom: .35rem; }
+  dd { margin: 0; color: var(--dim); }
+  .info p { color: var(--dim); max-width: 60ch; }
+  code { font-family: var(--mono); font-size: .92em; }
+
+  footer { display: flex; flex-wrap: wrap; gap: 1.5rem; padding: 2rem 0 3rem; color: var(--dim);
+           border-top: 1px solid var(--edge); font-size: .95rem; }
+  footer a { color: var(--dim); }
+
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: minmax(0, 1fr); gap: 2.5rem; padding-top: 1.5rem; }
+    dl { grid-template-columns: 1fr; gap: 1.25rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .key { transition: none; }
+    .log li { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="wrap top">
+  <a class="brand" href="#"><img src="icon.png" width="28" height="28" alt=""> MacroClic</a>
+  <nav><a href="https://github.com/NotDjz/MacroClic">GitHub</a></nav>
+</header>
+
+<main>
+  <section class="wrap hero">
+    <div>
+      <h1>Hold the button so you don't have to.</h1>
+      <p class="lede">MacroClic repeats or holds any key or mouse button for you. A key you pick starts and stops it, right from inside your game.</p>
+      <div class="cta">
+        <a class="btn" href="https://github.com/NotDjz/MacroClic/releases/latest/download/MacroClic.exe">Download for Windows</a>
+        <a class="btn quiet" href="https://github.com/NotDjz/MacroClic">View the code</a>
+      </div>
+      <p class="fine">Free and open source. One portable exe for Windows 10 and 11.</p>
+    </div>
+
+    <div class="demo" role="group" aria-label="Try the repeat mode, live">
+      <p class="cap" id="trigger-cap">When I press</p>
+      <button class="key" id="trigger" aria-describedby="trigger-cap">F</button>
+      <p class="cap" id="action-cap">the macro sends</p>
+      <button class="key" id="action" aria-describedby="action-cap">Space</button>
+      <div class="row">
+        <label for="every">every</label>
+        <input id="every" type="number" min="0.05" max="5" step="0.05" value="0.20">
+        <span>s</span>
+        <button class="run" id="run">Start</button>
+      </div>
+      <ol class="log" id="log" aria-hidden="true"></ol>
+      <p class="status" id="status" role="status">Press F to start. Click a key to change it.</p>
+    </div>
+  </section>
+
+  <section class="wrap info">
+    <h2>How it works</h2>
+    <dl>
+      <div><dt>Games see real input</dt><dd>Keys go out as hardware scan codes and clicks as raw mouse events, the way DirectInput and Raw Input games read them.</dd></div>
+      <div><dt>Your trigger stays yours</dt><dd>The key that starts the macro is caught before the game and never reaches it. Use a side mouse button, a function key, anything but left click.</dd></div>
+      <div><dt>Nothing stays pressed</dt><dd>Every press is paired with its release. Quitting, or restarting after a crash, lets go of anything still held.</dd></div>
+    </dl>
+  </section>
+
+  <section class="wrap info">
+    <h2>Before you run it</h2>
+    <dl>
+      <div><dt>Games running as administrator</dt><dd>Windows blocks input from a normal program to an elevated one. Right-click MacroClic.exe and choose Run as administrator.</dd></div>
+      <div><dt>A SmartScreen warning</dt><dd>The exe isn't signed, and it reads and sends input, so Windows or your antivirus may ask first. The full source is on GitHub.</dd></div>
+      <div><dt>Your settings</dt><dd>Saved the moment you change them, in <code>%APPDATA%\MacroClic</code>. Press Esc while choosing a key to cancel.</dd></div>
+    </dl>
+  </section>
+
+  <section class="wrap info">
+    <h2>Build it yourself</h2>
+    <p>Python 3.13 on Windows, one dependency. The commands are in the <a href="https://github.com/NotDjz/MacroClic#build-from-source">README</a>. Pushing a version tag builds the exe on GitHub Actions and publishes it as a release.</p>
+  </section>
+</main>
+
+<footer class="wrap">
+  <span>MacroClic by NotDjz</span>
+  <a href="https://github.com/NotDjz/MacroClic">Source code</a>
+  <a href="https://github.com/NotDjz/MacroClic/blob/main/LICENSE">MIT license</a>
+  <a href="https://github.com/NotDjz/MacroClic/releases">All releases</a>
+</footer>
+
+<script>
+  // A browser copy of the app: same sentence, same rebinding, keyboard only
+  // (pages can't see side mouse buttons).
+  const NAMES = { " ": "Space", Control: "Ctrl", ArrowLeft: "Left",
+                  ArrowRight: "Right", ArrowUp: "Up", ArrowDown: "Down" };
+  const keys = {
+    trigger: { code: "KeyF", label: "F", el: document.getElementById("trigger") },  // label fixed below for the layout
+    action:  { label: "Space", el: document.getElementById("action") },
+  };
+  const every = document.getElementById("every");
+  const runBtn = document.getElementById("run");
+  const log = document.getElementById("log");
+  const status = document.getElementById("status");
+  // Keys that move focus or activate buttons can't be the trigger: binding
+  // them would hijack keyboard navigation (the app refuses left click alike).
+  const NOT_TRIGGER = ["Tab", "Enter", "NumpadEnter", "Space"];
+  let timer = null, capture = null, presses = 0, release = null, downMs = 70;
+
+  const label = (e) => NAMES[e.key] || (e.key.length === 1 ? e.key.toUpperCase() : e.key);
+  function seconds() {
+    const v = every.valueAsNumber;
+    every.value = Number.isNaN(v) ? every.defaultValue
+                : Math.min(+every.max, Math.max(+every.min, v)).toFixed(2);
+    return +every.value;
+  }
+
+  function showStatus() {
+    const t = keys.trigger.label, n = `${presses} press${presses === 1 ? "" : "es"}`;
+    status.textContent =
+      capture === "trigger" ? "Press any key but Tab, Enter or Space. Esc to cancel." :
+      capture ? "Press any key. Esc to cancel." :
+      timer   ? `Running. ${t} to stop.` :
+      presses ? `Stopped after ${n}. ${t} to start again.` :
+                `Press ${t} to start. Click a key to change it.`;
+  }
+
+  function render() {
+    for (const [role, k] of Object.entries(keys)) {
+      k.el.textContent = capture === role ? "Press a key…" : k.label;
+      k.el.classList.toggle("capturing", capture === role);
+      k.el.disabled = !!timer;
+    }
+    every.disabled = !!timer;
+    runBtn.textContent = timer ? "Stop" : "Start";
+    showStatus();
+  }
+
+  // The dots are the visual count; the status (a live region) only changes on
+  // start and stop, so screen readers aren't flooded.
+  function press() {
+    const el = keys.action.el;
+    el.classList.add("down");
+    clearTimeout(release);
+    release = setTimeout(() => el.classList.remove("down"), downMs);
+    log.appendChild(document.createElement("li"));
+    if (log.children.length > 40) log.firstElementChild.remove();
+    presses++;
+  }
+
+  function start() {
+    capture = null;
+    presses = 0;
+    log.replaceChildren();
+    const s = seconds();
+    downMs = Math.min(70, s * 500);  // up again before the next press
+    timer = setInterval(press, s * 1000);
+    press();
+    render();
+  }
+
+  function stop() {
+    clearInterval(timer);
+    timer = null;
+    render();
+  }
+
+  const toggle = () => (timer ? stop() : start());
+
+  for (const [role, k] of Object.entries(keys)) {
+    k.el.addEventListener("click", () => {
+      capture = capture === role ? null : role;  // tapping it again cancels too
+      render();
+    });
+    // Choosing a key ends when it loses focus, however that happens.
+    k.el.addEventListener("blur", () => { if (capture === role) { capture = null; render(); } });
+  }
+  runBtn.addEventListener("click", toggle);
+
+  addEventListener("keydown", (e) => {
+    if (capture) {
+      e.preventDefault();
+      if (capture === "trigger" && NOT_TRIGGER.includes(e.code)) return;
+      if (e.key !== "Escape") Object.assign(keys[capture], { code: e.code, label: label(e) });
+      capture = null;
+      render();
+    } else if (e.code === keys.trigger.code && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey
+               && !(e.target instanceof HTMLInputElement)) {
+      e.preventDefault();
+      toggle();
+    }
+  });
+  // Don't keep pressing in a background tab.
+  document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
+  // KeyF is a position: name it after what it types here (AZERTY, Dvorak…).
+  navigator.keyboard?.getLayoutMap?.().then((map) => {
+    if (keys.trigger.code === "KeyF" && map.get("KeyF")) {
+      keys.trigger.label = map.get("KeyF").toUpperCase();
+      render();
+    }
+  }).catch(() => {});
+  render();
+</script>
+</body>
+</html>

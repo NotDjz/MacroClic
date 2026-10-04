@@ -1,5 +1,7 @@
 # MacroClic
 
+**Website:** https://notdjz.github.io/MacroClic/
+
 Press one key or mouse button to make Windows repeat, or hold down, another one for you. Built for games: the trigger works while the game has focus, and the game never sees it.
 
 ![MacroClic](docs/screenshot.png)
