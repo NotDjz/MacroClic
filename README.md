@@ -16,7 +16,7 @@ Windows SmartScreen or your antivirus may warn about it, because the exe is unsi
 
 1. Click the first key, then press the key or mouse button that will start and stop the macro. Left click can't be used here, since every click would then be swallowed.
 2. Click the second key, then press what the macro should send: a key, or a left, right, middle or side mouse button.
-3. Choose **Repeat** and set how often to press, in seconds, or **Hold** to keep it held down.
+3. Choose **Repeat** and set how often to press, in seconds, or **Hold** to keep it held down. In Repeat, tick **Anti-detection** to vary each wait at random by up to the percentage you set, either way: 1 s at 50 % presses about every 0.5 to 1.5 s.
 4. Press your trigger anywhere to start, and press it again to stop.
 
 Press Esc while choosing a key to cancel. Settings are saved in `%APPDATA%\MacroClic\config.json`.

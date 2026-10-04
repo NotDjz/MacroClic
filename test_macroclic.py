@@ -63,5 +63,22 @@ assert m.key_input(0x41, 0x10, False)["name"] == "A"
 assert m.parse_interval("0.5") == 0.5 and m.parse_interval("0") == m.MIN_INTERVAL
 assert m.parse_interval("inf") is None and m.parse_interval("nan") is None
 assert m.parse_interval("abc") is None and m.parse_interval(None) is None
+assert m.parse_interval(True) is None and m.parse_interval("0,5") == 0.5
+
+# Anti-detection percent.
+assert m.parse_jitter("50") == 50 and m.parse_jitter("12.6") == 13
+assert m.parse_jitter("0") == 1 and m.parse_jitter("500") == m.MAX_JITTER
+assert m.parse_jitter("inf") is None and m.parse_jitter("abc") is None
+
+# Anti-detection spreads the gap after each press evenly, never below zero.
+m.cfg.update(interval=1.0, random=False, jitter=50)
+gap = 1.0 - m.PRESS_TIME
+assert m.next_gap() == gap
+m.cfg["random"] = True
+waits = [m.next_gap() for _ in range(1000)]
+assert all(gap * 0.5 <= w <= gap * 1.5 for w in waits)
+assert min(waits) < gap * 0.6 and max(waits) > gap * 1.4
+m.cfg.update(interval=m.MIN_INTERVAL, jitter=m.MAX_JITTER)
+assert min(m.next_gap() for _ in range(1000)) > 0
 
 print("ok")

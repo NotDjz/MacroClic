@@ -7,6 +7,7 @@ import atexit
 import json
 import math
 import os
+import random
 import sys
 import threading
 import time
@@ -22,6 +23,7 @@ import winput
 APP = "MacroClic"
 PRESS_TIME = 0.04          # how long a repeated press stays down (seconds)
 MIN_INTERVAL, MAX_INTERVAL = 0.05, 3600
+MAX_JITTER = 90            # percent; at 100 a wait could shrink to nothing
 CONFIG = Path(os.environ.get("APPDATA", ".")) / APP / "config.json"
 
 MOUSE_NAMES = {"left": "Left click", "right": "Right click",
@@ -93,18 +95,32 @@ def valid(inp, role):
             and inp["id"] == key_id(vk, ext) and isinstance(inp.get("scan"), int))
 
 
-def parse_interval(value):
-    """Interval in seconds clamped to bounds, or None if not a finite number."""
-    try:
-        value = float(value)
-    except (TypeError, ValueError):
+def parse_number(value, low, high):
+    """value clamped to low..high, or None if not a finite number. Typed
+    text may use a decimal comma; True / False aren't numbers here."""
+    if isinstance(value, bool):
         return None
-    return min(MAX_INTERVAL, max(MIN_INTERVAL, value)) if math.isfinite(value) else None
+    try:
+        value = float(str(value).replace(",", "."))
+    except ValueError:
+        return None
+    return min(high, max(low, value)) if math.isfinite(value) else None
+
+
+def parse_interval(value):
+    """Seconds between presses."""
+    return parse_number(value, MIN_INTERVAL, MAX_INTERVAL)
+
+
+def parse_jitter(value):
+    """Whole percent for Anti-detection."""
+    value = parse_number(value, 1, MAX_JITTER)
+    return None if value is None else round(value)
 
 
 # ─── Settings ─────────────────────────────────────────────────────────────────
 cfg = {"trigger": mouse_input("x1"), "action": mouse_input("left"),
-       "interval": 0.2, "hold": False}
+       "interval": 0.2, "hold": False, "random": False, "jitter": 50}
 
 
 def load_config():
@@ -117,11 +133,12 @@ def load_config():
     for k in ("trigger", "action"):
         if valid(saved.get(k), k):
             cfg[k] = renamed(saved[k])
-    interval = saved.get("interval")
-    if not isinstance(interval, bool) and (value := parse_interval(interval)):
-        cfg["interval"] = value
-    if isinstance(saved.get("hold"), bool):
-        cfg["hold"] = saved["hold"]
+    for k, parse in (("interval", parse_interval), ("jitter", parse_jitter)):
+        if (value := parse(saved.get(k))) is not None:
+            cfg[k] = value
+    for k in ("hold", "random"):
+        if isinstance(saved.get(k), bool):
+            cfg[k] = saved[k]
 
 
 def save_config():
@@ -195,6 +212,14 @@ def wait_while_active(seconds):
         time.sleep(0.01)
 
 
+def next_gap():
+    """Wait after a repeated press, drawn within ±jitter % when Anti-detection
+    is on: a perfectly regular rhythm is easy for anti-cheat to spot. The draw
+    spreads the gap, not the whole interval, so it never goes below zero."""
+    spread = cfg["jitter"] / 100 if cfg["random"] else 0
+    return (cfg["interval"] - PRESS_TIME) * random.uniform(1 - spread, 1 + spread)
+
+
 def worker():
     while not stopping:
         if not active:
@@ -207,7 +232,7 @@ def worker():
             wait_while_active(float("inf") if cfg["hold"] else PRESS_TIME)
         finally:
             send(inp, True)  # never leave it stuck down
-        wait_while_active(cfg["interval"] - PRESS_TIME)
+        wait_while_active(next_gap())
 
 
 _worker = threading.Thread(target=worker, daemon=True)
@@ -368,12 +393,30 @@ def build_ui(root):
     unit = ttk.Label(mode_row, text="s", font=small)
     unit.pack(side="left")
 
-    def on_interval(*_):
-        value = parse_interval(interval.get().replace(",", "."))
-        if value:  # half-typed value: keep the previous one
-            cfg["interval"] = value
+    def bind_number(var, key, parse):
+        def on_write(*_):
+            value = parse(var.get())
+            if value is not None:  # half-typed value: keep the previous one
+                cfg[key] = value
+        var.trace_add("write", on_write)
 
-    interval.trace_add("write", on_interval)
+    bind_number(interval, "interval", parse_interval)
+
+    random_row = ttk.Frame(body)
+    random_row.pack(anchor="w", pady=(12, 0))
+    rand = tk.BooleanVar(value=cfg["random"])
+    check = ttk.Checkbutton(random_row, text="Anti-detection", variable=rand,
+                            command=lambda: cfg.update(random=rand.get()))
+    check.pack(side="left")
+    plus = ttk.Label(random_row, text="±", font=small)
+    plus.pack(side="left", padx=(14, 0))
+    jitter = tk.StringVar(value=str(cfg["jitter"]))
+    jitter_spin = ttk.Spinbox(random_row, from_=5, to=MAX_JITTER, increment=5,
+                              width=4, textvariable=jitter)
+    jitter_spin.pack(side="left", padx=6)
+    percent = ttk.Label(random_row, text="%", font=small)
+    percent.pack(side="left")
+    bind_number(jitter, "jitter", parse_jitter)
     root.update_idletasks()  # keycaps as wide as the mode row
     for cap in keycaps.values():
         cap.stretch(mode_row.winfo_reqwidth())
@@ -384,16 +427,13 @@ def build_ui(root):
                     font=(text_family, 10, "bold"))
     band.pack(fill="x")
 
-    def settings():
-        return (cfg["trigger"]["id"], cfg["action"]["id"], cfg["interval"],
-                cfg["hold"])
-
-    shown, saved = None, settings()
+    # Inputs are replaced, never mutated, so a shallow copy spots any change.
+    shown, saved = None, dict(cfg)
 
     def refresh():
         nonlocal shown, saved
-        if settings() != saved:  # save right away: survives logoff or a kill
-            saved = settings()
+        if cfg != saved:  # save right away: survives logoff or a kill
+            saved = dict(cfg)
             save_config()
         root.after(100, refresh)
         for key, cap in keycaps.items():
@@ -417,16 +457,21 @@ def build_ui(root):
             text, bg, fg = (f"Macro stopped. {trig} to start.",
                             pal["face"], pal["dim"])
         off = active or cfg["hold"]
-        if (text, bg, fg, active, off) == shown:
+        jitter_off = off or not cfg["random"]
+        if (text, bg, fg, active, off, jitter_off) == shown:
             return  # Tk repaints on every configure, even with same values
-        shown = (text, bg, fg, active, off)
+        shown = (text, bg, fg, active, off, jitter_off)
         band.configure(text=text, bg=bg, fg=fg)
         # Switching mode mid-hold would never release the held input.
         for mode in modes:
             mode.state(["disabled"] if active else ["!disabled"])
-        spin.state(["disabled" if off else "!disabled"])
-        for label in (every, unit):  # sv-ttk doesn't grey disabled labels
-            label.configure(foreground=pal["dim"] if off else pal["fg"])
+        for disabled, widgets, labels in (
+                (off, (spin, check), (every, unit)),
+                (jitter_off, (jitter_spin,), (plus, percent))):
+            for widget in widgets:
+                widget.state(["disabled" if disabled else "!disabled"])
+            for label in labels:  # sv-ttk doesn't grey disabled labels
+                label.configure(foreground=pal["dim"] if disabled else pal["fg"])
 
     refresh()
     if theme == "dark":
