@@ -52,7 +52,12 @@ assert not m.valid({"id": "key:65:1", "name": "A", "scan": 30, "ext": False}, "t
 assert not m.valid({"id": "mouse:nope"}, "action")
 assert not m.valid({"id": "key:65"}, "action")
 assert not m.valid(None, "action") and not m.valid({"id": 3}, "action")
-assert not m.valid({"id": "mouse:x1"}, "action")  # no name
+
+# Names are rebuilt in English, whatever the saved file says.
+assert m.renamed({"id": "mouse:x1", "name": "Bouton souris 4"})["name"] == "Mouse button 4"
+assert m.renamed({"id": "key:13:1", "scan": 0x1C, "ext": True})["name"] == "Num Enter"
+assert m.key_input(0x75, 0x40, False)["name"] == "F6"
+assert m.key_input(0x41, 0x10, False)["name"] == "A"
 
 # Interval parsing.
 assert m.parse_interval("0.5") == 0.5 and m.parse_interval("0") == m.MIN_INTERVAL

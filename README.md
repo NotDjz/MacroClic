@@ -14,10 +14,10 @@ Windows SmartScreen or your antivirus may warn about it, because the exe is unsi
 
 1. Click the first key, then press the key or mouse button that will start and stop the macro. Left click can't be used here, since every click would then be swallowed.
 2. Click the second key, then press what the macro should send: a key, or a left, right, middle or side mouse button.
-3. Choose **Répéter** and set how often to press, in seconds, or **Maintenir** to keep it held down.
+3. Choose **Repeat** and set how often to press, in seconds, or **Hold** to keep it held down.
 4. Press your trigger anywhere to start, and press it again to stop.
 
-The interface is in French. Settings are saved in `%APPDATA%\MacroClic\config.json`.
+Press Esc while choosing a key to cancel. Settings are saved in `%APPDATA%\MacroClic\config.json`.
 
 **Games running as administrator:** Windows blocks input from a normal program to an elevated one. Right-click `MacroClic.exe` and choose *Run as administrator*.
 

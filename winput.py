@@ -137,11 +137,31 @@ def release_stuck_mouse():
         time.sleep(0.02)
 
 
-def key_name(scan, extended):
-    """Key label in the active keyboard layout's language ("Entrée", "A")."""
-    buf = ctypes.create_unicode_buffer(32)
-    user32.GetKeyNameTextW((scan << 16) | (int(extended) << 24), buf, 32)
-    return buf.value
+# English names for keys without a printed character. Windows' own names
+# (GetKeyNameTextW) follow the keyboard layout's language.
+KEY_NAMES = {
+    0x08: "Backspace", 0x09: "Tab", 0x0D: "Enter", 0x13: "Pause",
+    0x14: "Caps Lock", 0x1B: "Esc", 0x20: "Space", 0x21: "Page Up",
+    0x22: "Page Down", 0x23: "End", 0x24: "Home", 0x25: "Left", 0x26: "Up",
+    0x27: "Right", 0x28: "Down", 0x2C: "Print Screen", 0x2D: "Insert",
+    0x2E: "Delete", 0x5B: "Left Win", 0x5C: "Right Win", 0x5D: "Menu",
+    0x6A: "Num *", 0x6B: "Num +", 0x6D: "Num -", 0x6E: "Num .", 0x6F: "Num /",
+    0x90: "Num Lock", 0x91: "Scroll Lock", 0xA0: "Left Shift",
+    0xA1: "Right Shift", 0xA2: "Left Ctrl", 0xA3: "Right Ctrl",
+    0xA4: "Left Alt", 0xA5: "Right Alt",
+    **{0x60 + i: f"Num {i}" for i in range(10)},
+    **{0x70 + i: f"F{i + 1}" for i in range(24)},
+}
+
+
+def key_name(vk, extended):
+    """English key label: a fixed name, or the character printed on the key."""
+    if vk == 0x0D and extended:
+        return "Num Enter"
+    if vk in KEY_NAMES:
+        return KEY_NAMES[vk]
+    char = user32.MapVirtualKeyW(vk, 2) & 0xFFFF  # MAPVK_VK_TO_CHAR, dead-key bit off
+    return chr(char).upper() if char > 0x20 else f"Key {vk}"
 
 
 # ─── Hooks ────────────────────────────────────────────────────────────────────

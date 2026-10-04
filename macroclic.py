@@ -24,9 +24,9 @@ PRESS_TIME = 0.04          # how long a repeated press stays down (seconds)
 MIN_INTERVAL, MAX_INTERVAL = 0.05, 3600
 CONFIG = Path(os.environ.get("APPDATA", ".")) / APP / "config.json"
 
-MOUSE_NAMES = {"left": "Clic gauche", "right": "Clic droit",
-               "middle": "Clic molette", "x1": "Bouton souris 4",
-               "x2": "Bouton souris 5"}
+MOUSE_NAMES = {"left": "Left click", "right": "Right click",
+               "middle": "Middle click", "x1": "Mouse button 4",
+               "x2": "Mouse button 5"}
 
 
 # ─── Inputs ───────────────────────────────────────────────────────────────────
@@ -47,8 +47,17 @@ def mouse_input(button):
 
 def key_input(vk, scan, ext):
     return {"id": key_id(vk, ext),
-            "name": winput.key_name(scan, ext) or f"Touche {vk}",
+            "name": winput.key_name(vk, ext),
             "scan": scan, "ext": ext}
+
+
+def renamed(inp):
+    """Copy with the display name rebuilt: names on disk may be stale (older
+    version, other keyboard layout) and aren't trusted."""
+    kind, _, value = inp["id"].partition(":")
+    if kind == "mouse":
+        return mouse_input(value)
+    return key_input(int(value.partition(":")[0]), inp["scan"], inp["ext"])
 
 
 def vk_of(inp):
@@ -74,8 +83,7 @@ def send(inp, up):
 def valid(inp, role):
     """role = "trigger" | "action". Left click can't be the trigger: it would
     be swallowed system-wide, including clicks on this window."""
-    if not (isinstance(inp, dict) and isinstance(inp.get("id"), str)
-            and isinstance(inp.get("name"), str)):
+    if not (isinstance(inp, dict) and isinstance(inp.get("id"), str)):
         return False
     kind, _, value = inp["id"].partition(":")
     if kind == "mouse":
@@ -108,7 +116,7 @@ def load_config():
         return
     for k in ("trigger", "action"):
         if valid(saved.get(k), k):
-            cfg[k] = saved[k]
+            cfg[k] = renamed(saved[k])
     interval = saved.get("interval")
     if not isinstance(interval, bool) and (value := parse_interval(interval)):
         cfg["interval"] = value
@@ -334,8 +342,8 @@ def build_ui(root):
             anchor="w", pady=(top, 6))
 
     keycaps = {}
-    for key, text, top in (("trigger", "Quand j'appuie sur", 0),
-                           ("action", "la macro envoie", 14)):
+    for key, text, top in (("trigger", "When I press", 0),
+                           ("action", "the macro sends", 14)):
         caption(text, top)
         keycaps[key] = Keycap(body, pal, scale, key_font,
                               lambda k=key: start_capture(k))
@@ -345,13 +353,13 @@ def build_ui(root):
     mode_row.pack(anchor="w", pady=(18, 0))
     hold = tk.BooleanVar(value=cfg["hold"])
     modes = []
-    for text, value, gap in (("Répéter", False, 4), ("Maintenir", True, 14)):
+    for text, value, gap in (("Repeat", False, 4), ("Hold", True, 14)):
         mode = ttk.Radiobutton(mode_row, text=text, value=value, variable=hold,
                                style="Toggle.TButton", width=9,
                                command=lambda: cfg.update(hold=hold.get()))
         mode.pack(side="left", padx=(0, gap))
         modes.append(mode)
-    every = ttk.Label(mode_row, text="toutes les", font=small)
+    every = ttk.Label(mode_row, text="every", font=small)
     every.pack(side="left")
     interval = tk.StringVar(value=f"{cfg['interval']:.2f}")
     spin = ttk.Spinbox(mode_row, from_=MIN_INTERVAL, to=MAX_INTERVAL, increment=0.05,
@@ -389,24 +397,24 @@ def build_ui(root):
             save_config()
         root.after(100, refresh)
         for key, cap in keycaps.items():
-            cap.show("Appuie sur une touche…" if capture == key
+            cap.show("Press a key or button…" if capture == key
                      else cfg[key]["name"], capture == key, not active)
         trig = cfg["trigger"]["name"]
         if hook_error:
-            text, bg, fg = (f"Raccourcis inactifs : {hook_error}",
+            text, bg, fg = (f"Trigger unavailable: {hook_error}",
                             pal["face"], pal["error"])
         elif capture == "trigger":
-            text, bg, fg = ("Appuie sur la touche ou le bouton de souris qui "
-                            "lancera la macro (pas le clic gauche). Échap pour "
-                            "annuler.", pal["face"], pal["fg"])
+            text, bg, fg = ("Press the key or mouse button that will start "
+                            "the macro (not left click). Esc to cancel.",
+                            pal["face"], pal["fg"])
         elif capture == "action":
-            text, bg, fg = ("Appuie sur la touche ou le bouton de souris à "
-                            "envoyer. Échap pour annuler.", pal["face"], pal["fg"])
+            text, bg, fg = ("Press the key or mouse button the macro should "
+                            "send. Esc to cancel.", pal["face"], pal["fg"])
         elif active:
-            text, bg, fg = (f"Macro en marche. {trig} pour l'arrêter.",
+            text, bg, fg = (f"Macro running. {trig} to stop.",
                             pal["accent"], pal["on_accent"])
         else:
-            text, bg, fg = (f"Macro arrêtée. {trig} pour la lancer.",
+            text, bg, fg = (f"Macro stopped. {trig} to start.",
                             pal["face"], pal["dim"])
         off = active or cfg["hold"]
         if (text, bg, fg, active, off) == shown:
