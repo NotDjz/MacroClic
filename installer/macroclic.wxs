@@ -1,0 +1,32 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <!-- Id derives a stable UpgradeCode: never change it, or a newer MSI installs beside the old one
+       instead of replacing it. Per user: no admin prompt, and nothing here needs Program Files. -->
+  <Package Id="NotDjz.MacroClic" Name="MacroClic" Manufacturer="NotDjz"
+           Version="$(var.Version)" Scope="perUser">
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="MacroClic" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- A per-user component needs an HKCU KeyPath and its folders removed on uninstall (ICE38,
+         ICE64). RemoveFolder only removes a folder that is empty. A file plus a registry KeyPath
+         cannot get a generated Guid: this one is fixed, never change it. -->
+    <Component Directory="INSTALLFOLDER" Guid="C2DFAD22-8E8C-42FA-82BD-80F895C3815F">
+      <File Id="App" Source="dist\MacroClic.exe" KeyPath="no">
+        <Shortcut Name="MacroClic" Directory="ProgramMenuFolder" WorkingDirectory="INSTALLFOLDER" />
+      </File>
+      <RegistryValue Root="HKCU" Key="Software\NotDjz\MacroClic" Name="Installed" Type="integer"
+                     Value="1" KeyPath="yes" />
+      <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+      <RemoveFolder Id="RemoveProgramsFolder" Directory="ProgramsFolder" On="uninstall" />
+    </Component>
+
+    <Icon Id="MacroClic.ico" SourceFile="macroclic.ico" />
+    <Property Id="ARPPRODUCTICON" Value="MacroClic.ico" />
+  </Package>
+</Wix>
