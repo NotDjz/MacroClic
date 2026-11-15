@@ -42,6 +42,10 @@ python -m PyInstaller --onefile --windowed --name MacroClic --icon macroclic.ico
 
 Pushing a `v*` tag builds the exe on GitHub Actions and publishes it as a release.
 
+### Installer
+
+`pwsh ./build-msi.ps1` builds the exe, then `dist\MacroClic-<version>-x64.msi` with [WiX 7](https://wixtoolset.org) (`dotnet tool install -g wix`). Double-click it: it installs for your account only (no admin prompt) into `%LOCALAPPDATA%\Programs\MacroClic` and adds MacroClic to the Start Menu. Uninstall it from Settings > Apps; your settings stay.
+
 ## License
 
 MIT
