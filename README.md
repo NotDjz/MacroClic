@@ -10,6 +10,8 @@ Press one key or mouse button to make Windows repeat, or hold down, another one 
 
 Get `MacroClic.exe` from the [latest release](../../releases/latest). It is a single file, with nothing to install.
 
+Or take `MacroClic-<version>-x64.msi` from the same release and double-click it: it installs for your account only (no admin prompt) into `%LOCALAPPDATA%\Programs\MacroClic` and adds MacroClic to the Start Menu. Uninstall it from Settings > Apps; your settings stay.
+
 Windows SmartScreen or your antivirus may warn about it, because the exe is unsigned and it reads and sends input. The source is all here, and you can [build it yourself](#build-from-source).
 
 ## Use
@@ -44,7 +46,7 @@ Pushing a `v*` tag builds the exe on GitHub Actions and publishes it as a releas
 
 ### Installer
 
-`pwsh ./build-msi.ps1` builds the exe, then `dist\MacroClic-<version>-x64.msi` with [WiX 7](https://wixtoolset.org) (`dotnet tool install -g wix`). Double-click it: it installs for your account only (no admin prompt) into `%LOCALAPPDATA%\Programs\MacroClic` and adds MacroClic to the Start Menu. Uninstall it from Settings > Apps; your settings stay.
+`pwsh ./build-msi.ps1` builds the exe, then `dist\MacroClic-<version>-x64.msi` with [WiX 7](https://wixtoolset.org) (`dotnet tool install -g wix`). The release workflow does not build it: attach it to the release by hand (`gh release upload v<version> dist\MacroClic-<version>-x64.msi`).
 
 ## License
 
